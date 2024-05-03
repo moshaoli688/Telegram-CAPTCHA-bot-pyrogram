@@ -4,12 +4,13 @@ import asyncio
 import json
 import logging
 import threading
-import time
-import datetime
+# import time
+from datetime import datetime, timedelta
 from configparser import ConfigParser
 
 from pyrogram import Client, filters
-from pyrogram.errors import ChatAdminRequired, ChannelPrivate, MessageNotModified, RPCError, BadRequest
+from pyrogram.errors import ChatAdminRequired, ChannelPrivate, MessageNotModified, RPCError, BadRequest, \
+    MessageDeleteForbidden
 from pyrogram.enums.chat_members_filter import ChatMembersFilter
 from pyrogram.enums.message_service_type import MessageServiceType
 from pyrogram.enums.chat_type import ChatType
@@ -19,12 +20,12 @@ from Timer import Timer
 from challenge.math import Math
 from challenge.recaptcha import ReCAPTCHA
 from challenge.autokickcache import AutoKickCache
-from dbhelper import DBHelper
+import dbhelper as db
 from challengedata import ChallengeData
 from waitress import serve
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 
-db = DBHelper()
+# db = DBHelper()
 
 _start_message = "YABE!"
 # _challenge_scheduler = sched.scheduler(time, sleep)
@@ -210,7 +211,7 @@ def _update(app):
             failed_count = success_count = 0
             deleted_user = []
             user_id_list = db.get_all_user_ids()
-            estimated_time = datetime.timedelta(seconds=int(len(user_id_list) / 4))
+            estimated_time = timedelta(seconds=int(len(user_id_list) / 4))
             await message.reply("开始整理数据库，请稍等...\n预计需要时间:{}".format(estimated_time))
             for x in user_id_list:
                 try:
@@ -308,7 +309,10 @@ def _update(app):
         service_message_need_delete = [MessageServiceType.NEW_CHAT_MEMBERS, MessageServiceType.LEFT_CHAT_MEMBERS]
         if message.service:
             if message.service in service_message_need_delete:
-                await message.delete()
+                try:
+                    await message.delete()
+                except MessageDeleteForbidden:
+                    pass
                 return
             else:
                 return
@@ -347,45 +351,46 @@ def _update(app):
 
         # 黑名单部分----------------------------------------------------------------------------------------------------
         if group_config["enable_global_blacklist"]:
-            current_time = int(time.time())
-            last_try = db.get_last_try(target.id)
-            since_last_attempt = current_time - last_try
-            if db.get_user_status(target.id) == 1 and since_last_attempt > group_config[
-                "global_timeout_user_blacklist_remove"]:
+            db_user = db.get_user(user_id)
+            if db_user:
+                current_time = datetime.now()
+                since_last_attempt = (current_time - db_user.last_attempt).total_seconds()
+                if since_last_attempt > group_config[
+                    "global_timeout_user_blacklist_remove"]:
 
-                # 存进 current_challenge 里面一小会，以供消息删除使用
-                challenge = AutoKickCache()
-                challenge_id = "{chat}|{msg}".format(chat=message.chat.id, msg=None)
-                timeout_event = Timer(
-                    challenge_timeout(client, message, None),
-                    timeout=5,
-                )
-                _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
+                    # 存进 current_challenge 里面一小会，以供消息删除使用
+                    challenge = AutoKickCache()
+                    challenge_id = "{chat}|{msg}".format(chat=message.chat.id, msg=None)
+                    timeout_event = Timer(
+                        challenge_timeout(client, message, None),
+                        timeout=5,
+                    )
+                    _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
 
-                await client.ban_chat_member(chat_id, target.id)
-                await client.unban_chat_member(chat_id, target.id)
-                db.update_last_try(current_time, target.id)
-                db.try_count_plus_one(target.id)
-                try_count = int(db.get_try_count(target.id))
-                try:
-                    await client.send_message(_channel,
-                                              text=_config["msg_failed_auto_kick"].format(
-                                                  targetuserid=str(target.id),
-                                                  targetusername=str(target.username),
-                                                  targetfirstname=str(target.first_name),
-                                                  targetlastname=str(target.last_name),
-                                                  groupid=str(chat_id),
-                                                  grouptitle=str(message.chat.title),
-                                                  lastattempt=str(
-                                                      time.strftime('%Y-%m-%d %H:%M %Z', time.gmtime(last_try))),
-                                                  sincelastattempt=str(datetime.timedelta(seconds=since_last_attempt)),
-                                                  trycount=str(try_count)
-                                              ))
-                except Exception as e:
-                    logging.error(str(e))
-                return
-            else:
-                db.whitelist(target.id)
+                    await client.ban_chat_member(chat_id, target.id)
+                    await client.unban_chat_member(chat_id, target.id)
+                    db.update_last_try(current_time, target.id)
+                    db.try_count_plus_one(target.id)
+                    try_count = int(db.get_try_count(target.id))
+                    try:
+                        await client.send_message(_channel,
+                                                  text=_config["msg_failed_auto_kick"].format(
+                                                      targetuserid=str(target.id),
+                                                      targetusername=str(target.username),
+                                                      targetfirstname=str(target.first_name),
+                                                      targetlastname=str(target.last_name),
+                                                      groupid=str(chat_id),
+                                                      grouptitle=str(message.chat.title),
+                                                      lastattempt=str(db_user.last_attempt.strftime("%Y-%m-%d %H:%M:%S")),
+                                                      sincelastattempt=str(
+                                                          timedelta(seconds=since_last_attempt)),
+                                                      trycount=str(try_count)
+                                                  ))
+                    except Exception as e:
+                        logging.error(str(e))
+                    return
+                else:
+                    db.delete_user(target.id)
 
         # 入群验证部分--------------------------------------------------------------------------------------------------
         # 这里做一个判断让当出 bug 的时候不会重复弹出一车验证消息
@@ -732,12 +737,11 @@ def _update(app):
             )
 
         if group_config["enable_global_blacklist"]:
-            current_time = int(time.time())
-            db.new_blacklist(current_time, from_id)
+            db.new_blacklist(datetime.now(), from_id)
 
 
 def _main():
-    db.setup()
+    # db.setup()
     global _channel, _start_message, _config
     load_config()
     _start_message = _config["msg_start_message"]

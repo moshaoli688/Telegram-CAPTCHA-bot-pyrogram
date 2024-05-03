@@ -1,7 +1,7 @@
 from pyrogram.errors import ChatAdminRequired, MessageNotModified
 from pyrogram.types import ChatPermissions
 import logging
-from dbhelper import DBHelper
+import dbhelper as db
 from flask import Flask, request, flash
 from flask import render_template
 from pyrogram import Client
@@ -11,7 +11,6 @@ app = Flask(__name__)
 client = None
 _current_challenges = ChallengeData()
 _config = dict()
-db = DBHelper()
 _channel = 0
 
 
