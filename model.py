@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, BigInteger
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 from enum import StrEnum
@@ -28,7 +28,7 @@ class BlacklistUser(Base):
     __tablename__ = 'blacklist_user'
     user_id = Column(BigInteger, primary_key=True, unique=True, nullable=False)
     last_attempt = Column(DateTime, nullable=False, default=datetime.now)
-    attempt_count = Column(Integer, nullable=False, default=0)
+    attempt_count = Column(Integer, nullable=False, default=1)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -46,6 +46,36 @@ class GroupConfig(Base):
     timeout_action = Column(String(10), nullable=False, default=FailedAction.kick)
     third_party_blacklist = Column(Boolean, nullable=False, default=False)
     global_blacklist = Column(Boolean, nullable=False, default=True)
+
+    @validates('challenge_type')
+    def validate_challenge_type(self, key, challenge_type):
+        if challenge_type not in (m.value for m in ChallengeType):
+            raise ValueError(f"Invalid challenge type value: {challenge_type}")
+        return challenge_type
+
+    @validates('failed_action')
+    def validate_failed_action(self, key, failed_action):
+        if failed_action not in (m.value for m in FailedAction):
+            raise ValueError(f"Invalid failed action value: {failed_action}")
+        return failed_action
+
+    @validates('timeout_action')
+    def validate_timeout_action(self, key, timeout_action):
+        if timeout_action not in (m.value for m in FailedAction):
+            raise ValueError(f"Invalid timeout action value: {timeout_action}")
+        return timeout_action
+
+    @validates('third_party_blacklist')
+    def validate_third_party_blacklist(self, key, third_party_blacklist):
+        if not isinstance(third_party_blacklist, bool):
+            raise ValueError(f"Invalid third party blacklist value: {third_party_blacklist}")
+        return third_party_blacklist
+
+    @validates('global_blacklist')
+    def validate_global_blacklist(self, key, global_blacklist):
+        if not isinstance(global_blacklist, bool):
+            raise ValueError(f"Invalid global blacklist value: {global_blacklist}")
+        return global_blacklist
 
     def __repr__(self):
         return "<group_config(group_id='%s', timeout='%s', challenge_type='%s', failed_action='%s', timeout_action='%s', third_party_blacklist='%s', global_blacklist='%s')>" % (

@@ -24,6 +24,7 @@ import dbhelper as db
 from challengedata import ChallengeData
 from waitress import serve
 from urllib.parse import urlparse
+from model import ChallengeType, FailedAction
 
 # db = DBHelper()
 
@@ -88,6 +89,7 @@ def get_group_config(chat_id):
     else:
         final_config = {**file_config, **db_config}
         return final_config
+
 
 def extract_ids(url: str) -> (int | str, int):
     # 解析 URL
@@ -268,10 +270,11 @@ def _update(app):
             return
         key = args[1]
         value = args[2]
-        if db.set_group_config(chat_id, key, value):
+        try:
+            db.set_group_config(chat_id, key, value)
             await message.reply("配置项设置成功")
-        else:
-            await message.reply("配置项设置失败, 请输入 /fasset 查看帮助")
+        except ValueError as e:
+            await message.reply(str(e))
 
     @app.on_message(filters.private & filters.command("sender"))
     async def get_message_info(client: Client, message: Message):
@@ -381,7 +384,8 @@ def _update(app):
                                                       targetlastname=str(target.last_name),
                                                       groupid=str(chat_id),
                                                       grouptitle=str(message.chat.title),
-                                                      lastattempt=str(db_user.last_attempt.strftime("%Y-%m-%d %H:%M:%S")),
+                                                      lastattempt=str(
+                                                          db_user.last_attempt.strftime("%Y-%m-%d %H:%M:%S")),
                                                       sincelastattempt=str(
                                                           timedelta(seconds=since_last_attempt)),
                                                       trycount=str(try_count)
@@ -435,7 +439,7 @@ def _update(app):
             return
         # reCAPTCHA 验证 ----------------------------------------------------------------------------------------------
 
-        if group_config['challenge_type'] == 'reCAPTCHA':
+        if group_config['challenge_type'] == ChallengeType.recaptcha:
             challenge = ReCAPTCHA()
             timeout = group_config["challenge_timeout"]
             reply_message = await client.send_message(
@@ -672,7 +676,7 @@ def _update(app):
             except ChatAdminRequired:
                 return
 
-            if group_config["challenge_failed_action"] == "ban":
+            if group_config["challenge_failed_action"] == FailedAction.ban:
                 await client.ban_chat_member(chat_id, user_id)
             else:
                 # kick
@@ -722,9 +726,9 @@ def _update(app):
                                       grouptitle=str(chat_title)
                                   ))
 
-        if group_config["challenge_timeout_action"] == "ban":
+        if group_config["challenge_timeout_action"] == FailedAction.ban:
             await client.ban_chat_member(chat_id, from_id)
-        elif group_config["challenge_timeout_action"] == "kick":
+        elif group_config["challenge_timeout_action"] == FailedAction.kick:
             await client.ban_chat_member(chat_id, from_id)
             await client.unban_chat_member(chat_id, from_id)
         else:
