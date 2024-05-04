@@ -2,7 +2,7 @@ import datetime
 import logging
 
 from db import SessionFactory
-from model import GroupConfig, BlacklistUser, RecaptchaLog
+from model import GroupConfig, BlacklistUser, RecaptchaLog, RecaptchaLogAction
 
 
 def get_user(user_id):
@@ -139,6 +139,19 @@ def set_group_config(group_id, key, value):
                 return False
             session.commit()
     return True
+
+
+def log_recaptcha(challenge_id, user_id, chat_id, ip_addr, user_agent, action: RecaptchaLogAction):
+    # 先根据 challenge_id, user_id, chat_id, ip_addr, action 查询是否已经存在记录 如果存在则什么都不做
+    # 如果不存在则插入记录
+    with SessionFactory() as session:
+        log = session.query(RecaptchaLog).filter_by(challenge_id=challenge_id, user_id=user_id, group_id=chat_id,
+                                                    ip_addr=ip_addr, action=action).first()
+        if log is None:
+            log = RecaptchaLog(challenge_id=challenge_id, user_id=user_id, group_id=chat_id, ip_addr=ip_addr,
+                               user_agent=user_agent, action=action)
+        session.add(log)
+        session.commit()
 
 
 if __name__ == '__main__':

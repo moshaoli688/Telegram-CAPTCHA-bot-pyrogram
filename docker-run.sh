@@ -22,7 +22,7 @@ check_dep() {
 main() {
 	cd /tg-captcha/workdir
 	check_dep
-	if [[ ! -f auth.ini ]] || [[ ! -f config.json ]]; then
+	if [[ ! -f config.ini ]] || [[ ! -f config.json ]]; then
 		echo ""
 		exit 1
 	fi

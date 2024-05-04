@@ -5,7 +5,7 @@ import json
 import uuid
 
 cf = ConfigParser()
-cf.read("auth.ini", encoding="utf-8")
+cf.read("config.ini", encoding="utf-8")
 
 
 class ReCAPTCHA:

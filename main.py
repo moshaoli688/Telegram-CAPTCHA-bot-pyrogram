@@ -39,7 +39,7 @@ admin_operate_filter = filters.create(lambda _, __, query: query.data.split(" ")
 读 只 读 配 置
 '''
 cf = ConfigParser()  # 启用ConfigParser读取那些启动后即不会再被更改的数据，如BotToken等
-cf.read("auth.ini", encoding="utf-8")
+cf.read("config.ini", encoding="utf-8")
 _admin_user = cf.getint("bot", "admin")
 _token = cf.get("bot", "token")
 _api_id = cf.getint("bot", "api_id")

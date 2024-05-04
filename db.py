@@ -26,6 +26,12 @@ def new_migration(message: str):
 
 
 if __name__ == '__main__':
-    new_migration('change user id to BigInteger')
-    upgrade_db()
-    ...
+    # 根据传入的命令行参数执行对应的操作
+    # 例如: python db.py update
+    import sys
+    if len(sys.argv) > 1:
+        if sys.argv[1] == 'update':
+            upgrade_db()
+        elif sys.argv[1] == 'new_migration':
+            new_migration(sys.argv[2])
+

@@ -1,11 +1,10 @@
 from pyrogram.errors import ChatAdminRequired, MessageNotModified
 from pyrogram.types import ChatPermissions
 import logging
-import dbhelper as db
 from flask import Flask, request, flash
 from flask import render_template
-from pyrogram import Client
 from challengedata import ChallengeData
+import dbhelper as db
 
 app = Flask(__name__)
 client = None
@@ -43,6 +42,8 @@ async def verify():
     challenge, target_id, timeout_event = challenge_data
     chat_id = challenge.message.chat.id
     msg_id = challenge.message.id
+    user_ip = request.headers.get('CF-Connecting-IP', request.remote_addr)
+    ua = request.headers.get('User-Agent')
 
     if chat_id != challenge.message.chat.id:
         flash("未知错误！", "error")
@@ -51,8 +52,6 @@ async def verify():
     chat_title = challenge.message.chat.title
 
     if request.method == "POST":
-        # 获取用户 IP, 用于 recaptcha 验证
-        user_ip = request.headers.get('CF-Connecting-IP', request.remote_addr)
         captcha_response = request.form['g-recaptcha-response']
         if not challenge.verify(captcha_response, user_ip):
             flash('验证状态异常，请再试一次！', 'error')
@@ -84,7 +83,14 @@ async def verify():
                         targetuserid=str(target_id),
                         groupid=str(chat_id),
                         grouptitle=str(chat_title),
-                    ))
+                    ) + f"\n验证ID: `{challenge_id}`")
+
+                db.log_recaptcha(challenge_id=challenge_id,
+                                 user_id=target_id,
+                                 chat_id=chat_id,
+                                 ip_addr=user_ip,
+                                 user_agent=ua,
+                                 action=db.RecaptchaLogAction.Passed)
             except Exception as e:
                 logging.error(str(e))
 
@@ -103,6 +109,15 @@ async def verify():
             flash('您已通过验证，欢迎加入本群！如果仍然无法发言，请重启 Telegram 客户端。')
             return render_template('result.html')
     else:
+        try:
+            db.log_recaptcha(challenge_id=challenge_id,
+                             user_id=target_id,
+                             chat_id=chat_id,
+                             ip_addr=user_ip,
+                             user_agent=ua,
+                             action=db.RecaptchaLogAction.PageVisit)
+        except Exception as e:
+            logging.error(e)
         return render_template('recaptcha.html', sitekey=challenge.site_key)
 
 
