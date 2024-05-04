@@ -154,5 +154,13 @@ def log_recaptcha(challenge_id, user_id, chat_id, ip_addr, user_agent, action: R
         session.commit()
 
 
+def get_logs_by_challenge_id(challenge_id):
+    with SessionFactory() as session:
+        # limit to last 5 logs
+        logs = session.query(RecaptchaLog).filter_by(challenge_id=challenge_id).order_by(
+            RecaptchaLog.created_at.desc()).limit(5).all()
+        return logs
+
+
 if __name__ == '__main__':
     ...

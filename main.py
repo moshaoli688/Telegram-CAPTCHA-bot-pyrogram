@@ -306,6 +306,23 @@ def _update(app):
             fuser = msg.from_user
             await message.reply(f"{fuser.mention(str(fuser.id))}\n")
 
+    @app.on_message(filters.private & filters.command("getlog"))
+    async def get_log(client: Client, message: Message):
+        if len(message.command) != 2:
+            await message.reply("使用方法: /getlog [challenge_id]")
+            return
+        if message.from_user.id != _admin_user:
+            return
+        logs = db.get_logs_by_challenge_id(message.command[1])
+        if len(logs) == 0:
+            await message.reply("没有找到相关记录")
+            return
+        text = ""
+        for log in logs:
+            text += str(log)
+            text += "\n"
+        await message.reply(text)
+
     @app.on_message(filters.group | filters.service)
     # delete service message and message send from pending validation user
     async def delete_service_message(client: Client, message: Message):

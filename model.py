@@ -40,7 +40,7 @@ class BlacklistUser(Base):
 class GroupConfig(Base):
     __tablename__ = 'group_config'
     chat_id = Column(BigInteger, primary_key=True, unique=True, nullable=False)
-    timeout = Column(Integer, nullable=False, default=60)
+    timeout = Column(Integer, nullable=False, default=120)
     challenge_type = Column(String(10), nullable=False, default=ChallengeType.recaptcha)
     failed_action = Column(String(10), nullable=False, default=FailedAction.kick)
     timeout_action = Column(String(10), nullable=False, default=FailedAction.kick)
@@ -96,6 +96,9 @@ class RecaptchaLog(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     def __repr__(self):
-        return "<recaptcha_log(id='%s', group_id='%s', user_id='%s', ip_addr='%s', user_agent='%s', action='%s', created_at='%s', updated_at='%s')>" % (
-            self.id, self.group_id, self.user_id, self.ip_addr, self.user_agent, self.action, self.created_at,
-            self.updated_at)
+        return "<recaptcha_log(id='%s', group_id='%s', user_id='%s', challenge_id='%s', ip_addr='%s', user_agent='%s', action='%s', created_at='%s', updated_at='%s')>" % (
+            self.id, self.group_id, self.user_id, self.challenge_id, self.ip_addr, self.user_agent, self.action,
+            self.created_at, self.updated_at)
+
+    def __str__(self):
+        return f"IP地址: `{self.ip_addr}`\nUA：`{self.user_agent}`\n状态：`{self.action}`\n时间：`{self.created_at}`\n"
