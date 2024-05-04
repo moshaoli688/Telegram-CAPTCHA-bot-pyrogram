@@ -89,7 +89,7 @@ class RecaptchaLog(Base):
     group_id = Column(BigInteger, ForeignKey('group_config.chat_id'), nullable=False)
     user_id = Column(BigInteger, nullable=False)
     challenge_id = Column(String(64), nullable=False)
-    ip_addr = Column(String(15), nullable=False)
+    ip_addr = Column(String(64), nullable=False)
     user_agent = Column(Text, nullable=False)
     action = Column(String(20), nullable=False)
     created_at = Column(DateTime, default=datetime.now)
