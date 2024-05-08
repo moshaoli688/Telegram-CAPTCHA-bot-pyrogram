@@ -56,6 +56,7 @@ class GroupConfig(Base):
     @validates('failed_action')
     def validate_failed_action(self, key, failed_action):
         if failed_action not in (m.value for m in FailedAction):
+            print(failed_action)
             raise ValueError(f"Invalid failed action value: {failed_action}")
         return failed_action
 
