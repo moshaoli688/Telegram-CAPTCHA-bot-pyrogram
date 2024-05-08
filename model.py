@@ -40,7 +40,7 @@ class BlacklistUser(Base):
 class GroupConfig(Base):
     __tablename__ = 'group_config'
     chat_id = Column(BigInteger, primary_key=True, unique=True, nullable=False)
-    timeout = Column(Integer, nullable=False, default=120)
+    timeout = Column(Integer, nullable=False, default=180)
     challenge_type = Column(String(10), nullable=False, default=ChallengeType.recaptcha)
     failed_action = Column(String(10), nullable=False, default=FailedAction.kick)
     timeout_action = Column(String(10), nullable=False, default=FailedAction.kick)

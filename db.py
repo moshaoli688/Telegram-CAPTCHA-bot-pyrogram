@@ -55,7 +55,7 @@ def _import_from_csv(file_path, table):
                     else:
                         row[6] = True
                     if row[3] == "":
-                        row[3] = 120
+                        row[3] = 180
                     obj.append(GroupConfig(chat_id=row[0], timeout=row[3], challenge_type=row[4].lower(), failed_action=row[1],
                                        timeout_action=row[2], third_party_blacklist=row[6], global_blacklist=row[5]))
             if table == 'blacklist_user':
