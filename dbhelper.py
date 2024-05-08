@@ -72,6 +72,7 @@ def get_all_user_ids():
 def delete_users_by_id(user_id_list: list):
     with SessionFactory() as session:
         session.query(BlacklistUser).filter(BlacklistUser.user_id.in_(user_id_list)).delete(synchronize_session=False)
+        session.commit()
 
 
 def get_group_config(group_id, field: str = 'all'):
