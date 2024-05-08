@@ -211,7 +211,7 @@ def _update(app):
     async def clean_database(client: Client, message: Message):
         if message.from_user.id == _admin_user:
             failed_count = success_count = 0
-            deleted_user = []
+            deleted_users = []
             user_id_list = db.get_all_user_ids()
             estimated_time = timedelta(seconds=int(len(user_id_list) / 4))
             await message.reply("开始整理数据库，请稍等...\n预计需要时间:{}".format(estimated_time))
@@ -219,14 +219,14 @@ def _update(app):
                 try:
                     user = await client.get_users(x)
                 except BadRequest:
-                    deleted_user.append((x,))
+                    deleted_users.append(x)
                     failed_count += 1
                     continue
                 if user.is_deleted:
-                    deleted_user.append((user.id,))
+                    deleted_users.append(x)
                     # 因为 db 用的是 executemany ，得传一个 tuple 进去，所以必须得这么写，不知道有没有更好的方法
                     success_count += 1
-            db.delete_user(deleted_user)
+            db.delete_users_by_id(deleted_users)
             await message.reply(
                 "已成功清除{}个已经删号的用户，共有{}个用户信息获取失败。".format(success_count, failed_count))
         else:
@@ -411,7 +411,7 @@ def _update(app):
                         logging.error(str(e))
                     return
                 else:
-                    db.delete_user(target.id)
+                    db.delete_users_by_id(target.id)
 
         # 入群验证部分--------------------------------------------------------------------------------------------------
         # 这里做一个判断让当出 bug 的时候不会重复弹出一车验证消息

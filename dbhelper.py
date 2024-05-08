@@ -69,14 +69,9 @@ def get_all_user_ids():
             return [i.user_id for i in user]
 
 
-def delete_user(user_id):
+def delete_users_by_id(user_id_list: list):
     with SessionFactory() as session:
-        user = session.query(BlacklistUser).filter_by(user_id=user_id).first()
-        if user is None:
-            logging.error('User not found')
-        else:
-            session.delete(user)
-            session.commit()
+        session.query(BlacklistUser).filter(BlacklistUser.id.in_(user_id_list)).delete(synchronize_session=False)
 
 
 def get_group_config(group_id, field: str = 'all'):
