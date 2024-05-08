@@ -71,12 +71,10 @@ def get_all_user_ids():
 
 def delete_users_by_id(user_id_list: list | int):
     with SessionFactory() as session:
-        if isinstance(user_id_list, int):
-            session.query(BlacklistUser).filter_by(user_id=user_id_list).delete(synchronize_session=False)
         if isinstance(user_id_list, list):
             session.query(BlacklistUser).filter(BlacklistUser.user_id.in_(user_id_list)).delete(synchronize_session=False)
         else:
-            raise ValueError('Invalid input')
+            session.query(BlacklistUser).filter_by(user_id=user_id_list).delete(synchronize_session=False)
         session.commit()
 
 
@@ -180,4 +178,5 @@ def get_logs_by_ip(ip_addr):
 
 
 if __name__ == '__main__':
+    delete_users_by_id(123456789)
     ...
