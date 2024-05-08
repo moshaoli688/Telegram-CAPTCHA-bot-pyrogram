@@ -323,6 +323,24 @@ def _update(app):
             text += "\n"
         await message.reply(text)
 
+    @app.on_message(filters.private & filters.forwarded)
+    async def get_user_record(client: Client, message: Message):
+        if message.from_user.id != _admin_user:
+            return
+        if message.forward_from is None:
+            await message.reply("该消息用户为频道或关闭了消息转发权限")
+            return
+        user_id = message.forward_from.id
+        logs = db.get_logs_by_user_id(user_id)
+        if len(logs) == 0:
+            await message.reply("没有找到相关记录")
+            return
+        text = ""
+        for log in logs:
+            text += str(log)
+            text += "\n"
+        await message.reply(text)
+
     @app.on_message(filters.group | filters.service)
     # delete service message and message send from pending validation user
     async def delete_service_message(client: Client, message: Message):

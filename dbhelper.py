@@ -69,9 +69,14 @@ def get_all_user_ids():
             return [i.user_id for i in user]
 
 
-def delete_users_by_id(user_id_list: list):
+def delete_users_by_id(user_id_list: list | int):
     with SessionFactory() as session:
-        session.query(BlacklistUser).filter(BlacklistUser.user_id.in_(user_id_list)).delete(synchronize_session=False)
+        if isinstance(user_id_list, int):
+            session.query(BlacklistUser).filter_by(user_id=user_id_list).delete(synchronize_session=False)
+        if isinstance(user_id_list, list):
+            session.query(BlacklistUser).filter(BlacklistUser.user_id.in_(user_id_list)).delete(synchronize_session=False)
+        else:
+            raise ValueError('Invalid input')
         session.commit()
 
 
@@ -154,7 +159,23 @@ def get_logs_by_challenge_id(challenge_id):
     with SessionFactory() as session:
         # limit to last 5 logs
         logs = session.query(RecaptchaLog).filter_by(challenge_id=challenge_id).order_by(
-            RecaptchaLog.created_at.desc()).limit(5).all()
+            RecaptchaLog.created_at.desc()).limit(10).all()
+        return logs
+
+
+def get_logs_by_user_id(user_id):
+    with SessionFactory() as session:
+        # limit to last 5 logs
+        logs = session.query(RecaptchaLog).filter_by(user_id=user_id).order_by(
+            RecaptchaLog.created_at.desc()).limit(10).all()
+        return logs
+
+
+def get_logs_by_ip(ip_addr):
+    with SessionFactory() as session:
+        # limit to last 5 logs
+        logs = session.query(RecaptchaLog).filter_by(ip_addr=ip_addr).order_by(
+            RecaptchaLog.created_at.desc()).limit(10).all()
         return logs
 
 
