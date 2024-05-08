@@ -61,6 +61,8 @@ def _import_from_csv(file_path, table):
             if table == 'blacklist_user':
                 obj = []
                 for row in reader:
+                    if row[2] == "0":
+                        continue
                     linux_timestamp = int(row[1])
                     # 将时间戳转换为datetime对象
                     last_attempt = datetime.fromtimestamp(linux_timestamp)
