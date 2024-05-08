@@ -87,7 +87,7 @@ class GroupConfig(Base):
 class RecaptchaLog(Base):
     __tablename__ = 'recaptcha_log'
     id = Column(Integer, primary_key=True, unique=True, nullable=False)
-    group_id = Column(BigInteger, ForeignKey('group_config.chat_id'), nullable=False)
+    group_id = Column(BigInteger, nullable=False)
     user_id = Column(BigInteger, nullable=False)
     challenge_id = Column(String(64), nullable=False)
     ip_addr = Column(String(64), nullable=False)
