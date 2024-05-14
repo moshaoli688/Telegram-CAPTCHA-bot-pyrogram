@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from configparser import ConfigParser
 
 from pyrogram import Client, filters
+from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import ChatAdminRequired, ChannelPrivate, MessageNotModified, RPCError, BadRequest, \
     MessageDeleteForbidden
 from pyrogram.enums.chat_members_filter import ChatMembersFilter
@@ -403,7 +404,7 @@ def _update(app):
         if not bool(message.new_chat_member) or bool(message.old_chat_member) or message.chat.type == ChatType.CHANNEL:
             return
         # 过滤掉管理员 ban 掉用户产生的加群消息 (Durov 这什么 jb api 赶紧分遗产了)
-        if message.from_user.id != message.new_chat_member.user.id and not message.new_chat_member.user.is_self:
+        if message.from_user.id != message.new_chat_member.user.id and not message.new_chat_member.status == ChatMemberStatus.MEMBER:
             return
 
         target = message.new_chat_member.user
