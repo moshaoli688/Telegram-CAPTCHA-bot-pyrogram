@@ -103,3 +103,14 @@ class RecaptchaLog(Base):
 
     def __str__(self):
         return f"IP地址: `{self.ip_addr}`\nUA：`{self.user_agent}`\n状态：`{self.action}`\n时间：`{self.created_at}`\n"
+
+#
+# class AIConfig(Base):
+#     chat_id = Column(BigInteger, primary_key=True, unique=True, nullable=False)
+#     openai_api_key = Column(String(64), nullable=False)
+#     admin_id = Column(BigInteger, nullable=False)
+#     first_message_check = Column(Boolean, nullable=False, default=False)
+#     report_message_check = Column(Boolean, nullable=False, default=False)
+#
+#     created_at = Column(DateTime, default=datetime.now)
+#     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)

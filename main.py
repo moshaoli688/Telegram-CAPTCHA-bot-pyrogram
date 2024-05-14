@@ -25,6 +25,8 @@ from challengedata import ChallengeData
 from waitress import serve
 from urllib.parse import urlparse
 from model import ChallengeType, FailedAction
+from ai import chk_message
+import base64
 
 # db = DBHelper()
 
@@ -275,6 +277,28 @@ def _update(app):
             await message.reply("配置项设置成功")
         except ValueError as e:
             await message.reply(str(e))
+
+    @app.on_message(filters.command("report") & filters.group)
+    async def report_message(client: Client, message: Message):
+        if message.reply_to_message is None:
+            await message.reply("请回复一条消息")
+            return
+        reply_message = message.reply_to_message
+        image_url = ""
+        if reply_message.from_user is not None:
+            reply_message.chat = await client.get_chat(reply_message.from_user.id)
+        else:
+            reply_message.chat = await client.get_chat(reply_message.sender_chat.id)
+        if reply_message.photo:
+            file = await client.download_media(reply_message.photo.file_id, in_memory=True)
+            file_ext = file.name.split('.')[-1]
+            file_bytes = bytes(file.getbuffer())
+            image_url = f"data:image/{file_ext};base64,{base64.b64encode(file_bytes).decode('utf-8')}"
+            print(image_url)
+        result = await chk_message(api_key="sk-", message=reply_message, image_url=image_url, max_token=512)
+        if result.possibility > 85:
+            logging.info(f"AI 判断为垃圾消息，概率为 {result.possibility}%")
+            await client.ban_chat_member(message.chat.id, reply_message.chat.id if reply_message.from_user is None else reply_message.from_user.id)
 
     @app.on_message(filters.private & filters.command("sender"))
     async def get_message_info(client: Client, message: Message):
