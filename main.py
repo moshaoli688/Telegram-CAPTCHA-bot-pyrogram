@@ -431,7 +431,10 @@ def _update(app):
                     _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
 
                     await client.ban_chat_member(chat_id, target.id)
+                    logging.info(f"{target.id} banned")
+                    await asyncio.sleep(1)
                     await client.unban_chat_member(chat_id, target.id)
+                    logging.info(f"{target.id} unbanned")
                     db.update_last_try(current_time, target.id)
                     db.try_count_plus_one(target.id)
                     try_count = int(db.get_try_count(target.id))
@@ -741,7 +744,10 @@ def _update(app):
             else:
                 # kick
                 await client.ban_chat_member(chat_id, user_id)
+                logging.info(f"{user_id} banned")
+                await asyncio.sleep(1)
                 await client.unban_chat_member(chat_id, user_id)
+                logging.info(f"{user_id} unbanned")
 
             if group_config["delete_failed_challenge"]:
                 Timer(
@@ -789,8 +795,11 @@ def _update(app):
         if group_config["challenge_timeout_action"] == FailedAction.ban:
             await client.ban_chat_member(chat_id, from_id)
         elif group_config["challenge_timeout_action"] == FailedAction.kick:
-            await client.ban_chat_member(chat_id, from_id)
-            await client.unban_chat_member(chat_id, from_id)
+            await client.ban_chat_member(chat_id, chat_id)
+            logging.info(f"{chat_id} banned")
+            await asyncio.sleep(1)
+            await client.unban_chat_member(chat_id, chat_id)
+            logging.info(f"{chat_id} unbanned")
         else:
             pass
 
