@@ -795,11 +795,11 @@ def _update(app):
         if group_config["challenge_timeout_action"] == FailedAction.ban:
             await client.ban_chat_member(chat_id, from_id)
         elif group_config["challenge_timeout_action"] == FailedAction.kick:
-            await client.ban_chat_member(chat_id, chat_id)
-            logging.info(f"{chat_id} banned")
+            await client.ban_chat_member(chat_id, from_id)
+            logging.info(f"{from_id} banned")
             await asyncio.sleep(1)
-            await client.unban_chat_member(chat_id, chat_id)
-            logging.info(f"{chat_id} unbanned")
+            await client.unban_chat_member(chat_id, from_id)
+            logging.info(f"{from_id} unbanned")
         else:
             pass
 
