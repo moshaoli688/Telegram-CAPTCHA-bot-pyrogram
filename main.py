@@ -804,7 +804,7 @@ def _update(app):
             await client.unban_chat_member(chat_id, from_id)
             logging.info(f"{from_id} unbanned")
 
-            asyncio.create_task(ensure_user_got_banned(client, message.chat, user_id))
+            asyncio.create_task(ensure_user_got_banned(client, message.chat, from_id))
         else:
             pass
 
