@@ -433,7 +433,7 @@ def _update(app):
                     await client.ban_chat_member(chat_id, target.id)
                     logging.info(f"{target.id} banned")
                     await asyncio.sleep(1)
-                    await client.unban_chat_member(chat_id, target.id)
+                    await fixed_unban_chat_member(client, chat_id, target.id)
                     logging.info(f"{target.id} unbanned")
                     asyncio.create_task(ensure_user_got_banned(client, message.chat, user_id))
                     db.update_last_try(current_time, target.id)
@@ -747,7 +747,7 @@ def _update(app):
                 await client.ban_chat_member(chat_id, user_id)
                 logging.info(f"{user_id} banned")
                 await asyncio.sleep(1)
-                await client.unban_chat_member(chat_id, user_id)
+                await fixed_unban_chat_member(client, chat_id, user_id)
                 logging.info(f"{user_id} unbanned")
 
                 asyncio.create_task(ensure_user_got_banned(client, callback_query.message.chat, user_id))
@@ -801,7 +801,7 @@ def _update(app):
             await client.ban_chat_member(chat_id, from_id)
             logging.info(f"{from_id} banned")
             await asyncio.sleep(1)
-            await client.unban_chat_member(chat_id, from_id)
+            await fixed_unban_chat_member(client, chat_id, from_id)
             logging.info(f"{from_id} unbanned")
 
             asyncio.create_task(ensure_user_got_banned(client, message.chat, from_id))
@@ -816,6 +816,19 @@ def _update(app):
 
         if group_config["enable_global_blacklist"]:
             db.new_blacklist(datetime.now(), from_id)
+
+    async def fixed_unban_chat_member(client: Client, chat_id: int, user_id: int):
+        await client.restrict_chat_member(chat_id, user_id, ChatPermissions(
+            can_send_messages = True,
+            can_send_media_messages = True,
+            can_send_other_messages = True,  # Stickers, animations, games, inline bots
+            can_send_polls= True,
+            can_add_web_page_previews= True,
+            can_change_info= True,
+            can_invite_users= True,
+            can_pin_messages= True,
+            can_manage_topics= True,
+        ))
 
     async def ensure_user_got_banned(client: Client, chat: Chat, user_id: int):
         # 当前有验证任务，就不用判断了
