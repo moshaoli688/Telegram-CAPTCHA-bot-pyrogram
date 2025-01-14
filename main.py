@@ -113,7 +113,6 @@ def extract_ids(url: str) -> (int | str, int):
         message_id = int(path.split('/')[-1])
         return chat_id, message_id
 
-
 def _update(app):
     @app.on_message(filters.command("reload") & filters.private)
     async def reload_cfg(client: Client, message: Message):
@@ -430,11 +429,7 @@ def _update(app):
                     )
                     _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
 
-                    await client.ban_chat_member(chat_id, target.id)
-                    logging.info(f"{target.id} banned")
-                    await asyncio.sleep(1)
-                    await client.unban_chat_member(chat_id, target.id)
-                    logging.info(f"{target.id} unbanned")
+                    await client.ban_chat_member(chat_id, target.id, until_date=current_time + timedelta(seconds=31))
                     asyncio.create_task(ensure_user_got_banned(client, message.chat, user_id))
                     db.update_last_try(current_time, target.id)
                     db.try_count_plus_one(target.id)
@@ -744,10 +739,7 @@ def _update(app):
                 await client.ban_chat_member(chat_id, user_id)
             else:
                 # kick
-                await client.ban_chat_member(chat_id, user_id)
-                logging.info(f"{user_id} banned")
-                await asyncio.sleep(1)
-                await client.unban_chat_member(chat_id, user_id)
+                await client.ban_chat_member(chat_id, user_id, until_date=datetime.now() + timedelta(seconds=31))
                 logging.info(f"{user_id} unbanned")
 
                 asyncio.create_task(ensure_user_got_banned(client, callback_query.message.chat, user_id))
@@ -798,10 +790,7 @@ def _update(app):
         if group_config["challenge_timeout_action"] == FailedAction.ban:
             await client.ban_chat_member(chat_id, from_id)
         elif group_config["challenge_timeout_action"] == FailedAction.kick:
-            await client.ban_chat_member(chat_id, from_id)
-            logging.info(f"{from_id} banned")
-            await asyncio.sleep(1)
-            await client.unban_chat_member(chat_id, from_id)
+            await client.ban_chat_member(chat_id, from_id, until_date=datetime.now() + timedelta(seconds=31))
             logging.info(f"{from_id} unbanned")
 
             asyncio.create_task(ensure_user_got_banned(client, message.chat, from_id))
