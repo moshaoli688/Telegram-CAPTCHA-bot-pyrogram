@@ -550,7 +550,7 @@ def _update(app):
                                                           timeout=timeout,
                                                           challenge=challenge.qus()),
                 reply_markup=InlineKeyboardMarkup(
-                    challenge.generate_join_request_button(group_config)),
+                    challenge.generate_button(group_config)),
             )
 
         # 开始计时 -----------------------------------------------------------------------------------------------------
