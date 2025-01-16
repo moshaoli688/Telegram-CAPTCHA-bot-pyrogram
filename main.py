@@ -160,7 +160,7 @@ def _update(app):
         else:
             challenge, target_id, timeout_event = challenge_data
 
-        await message.reply("点击下方按钮完成验证，您需要使用浏览器来完成\n\n",
+        await message.reply("点击下方按钮完成验证，您需要使用浏览器来完成，如果您在访问页面时出现问题，请尝试关闭的匿名代理\n\n",
                             reply_markup=InlineKeyboardMarkup(challenge.generate_auth_button()))
 
     @app.on_message(filters.command("admin", prefixes="@") & filters.group)
@@ -299,6 +299,7 @@ def _update(app):
         if result.possibility > 85:
             logging.info(f"AI 判断为垃圾消息，概率为 {result.possibility}%")
             await client.ban_chat_member(message.chat.id, reply_message.chat.id if reply_message.from_user is None else reply_message.from_user.id)
+            await client.delete_user_history(message.chat.id, reply_message.chat.id if reply_message.from_user is None else reply_message.from_user.id)
 
     @app.on_message(filters.private & filters.command("sender"))
     async def get_message_info(client: Client, message: Message):
@@ -430,6 +431,7 @@ def _update(app):
                     _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
 
                     await client.ban_chat_member(chat_id, target.id, until_date=current_time + timedelta(seconds=31))
+                    await client.delete_user_history(chat_id, target.id)
                     db.update_last_try(current_time, target.id)
                     db.try_count_plus_one(target.id)
                     try_count = int(db.get_try_count(target.id))
@@ -608,6 +610,7 @@ def _update(app):
             else:
                 try:
                     await client.ban_chat_member(chat_id, target_id)
+                    await client.delete_user_history(chat_id, target_id)
                 except ChatAdminRequired:
                     await client.answer_callback_query(
                         query_id, group_config["msg_bot_no_permission"])
@@ -736,9 +739,11 @@ def _update(app):
 
             if group_config["challenge_failed_action"] == FailedAction.ban:
                 await client.ban_chat_member(chat_id, user_id)
+                await client.delete_user_history(chat_id, user_id)
             else:
                 # kick
                 await client.ban_chat_member(chat_id, user_id, until_date=datetime.now() + timedelta(seconds=31))
+                await client.delete_user_history(chat_id, user_id)
                 logging.info(f"{user_id} unbanned")
 
             if group_config["delete_failed_challenge"]:
@@ -786,8 +791,10 @@ def _update(app):
 
         if group_config["challenge_timeout_action"] == FailedAction.ban:
             await client.ban_chat_member(chat_id, from_id)
+            await client.delete_user_history(chat_id, from_id)
         elif group_config["challenge_timeout_action"] == FailedAction.kick:
             await client.ban_chat_member(chat_id, from_id, until_date=datetime.now() + timedelta(seconds=31))
+            await client.delete_user_history(chat_id, from_id)
             logging.info(f"{from_id} unbanned")
         else:
             pass
