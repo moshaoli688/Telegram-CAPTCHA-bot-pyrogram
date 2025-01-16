@@ -11,10 +11,11 @@ from configparser import ConfigParser
 from pyrogram import Client, filters
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import ChatAdminRequired, ChannelPrivate, MessageNotModified, RPCError, BadRequest, \
-    MessageDeleteForbidden, UserNotParticipant
+    MessageDeleteForbidden, UserNotParticipant, UserIsBlocked
 from pyrogram.enums.chat_members_filter import ChatMembersFilter
 from pyrogram.enums.message_service_type import MessageServiceType
 from pyrogram.enums.chat_type import ChatType
+from pyrogram.filters import private
 from pyrogram.types import (InlineKeyboardMarkup, User, Message, ChatPermissions, CallbackQuery,
                             ChatMemberUpdated, ChatMember, Chat)
 from Timer import Timer
@@ -37,6 +38,7 @@ _current_challenges = ChallengeData()
 _cch_lock = threading.Lock()
 _config = dict()
 admin_operate_filter = filters.create(lambda _, __, query: query.data.split(" ")[0] in ["+", "-"])
+private_math_challenge_filter = filters.create(lambda _, __, query: "|" in query.data)
 
 '''
 读 只 读 配 置
@@ -398,6 +400,36 @@ def _update(app):
                                       ))
             return
 
+    @app.on_chat_join_request()
+    async def on_chat_join_request(client: Client, message: Message):
+        user_id = message.from_user.id
+        chat_id = message.chat.id
+        group_config = get_group_config(message.chat.id)
+        # reCAPTCHA 验证 ----------------------------------------------------------------------------------------------
+        if group_config['challenge_type'] == ChallengeType.recaptcha:
+            challenge = ReCAPTCHA()
+            timeout = group_config["challenge_timeout"]
+            reply_message = await client.send_message(chat_id=user_id, text=f"请在{timeout}秒内点击下方按钮完成验证，您需要使用浏览器来完成，如果您在访问页面时出现问题，请尝试关闭的匿名代理\n\n",
+                            reply_markup=InlineKeyboardMarkup(challenge.generate_auth_button()))
+            challenge.message = reply_message
+        else:  # 验证码验证 -------------------------------------------------------------------------------------------
+            challenge = Math()
+            timeout = group_config["challenge_timeout"]
+            reply_message = await client.send_message(
+                user_id,
+                group_config["msg_challenge_math_private"].format(challenge=challenge.qus(), timeout=timeout),
+                reply_markup=InlineKeyboardMarkup(
+                    challenge.generate_join_request_button(chat_id=chat_id)),
+            )
+            challenge.message = reply_message
+        # 开始计时 -----------------------------------------------------------------------------------------------------
+        challenge_id = "{chat}|{userid}".format(chat=message.chat.id, userid=user_id)
+        timeout_event = Timer(
+            join_request_challenge_timeout(client, message),
+            timeout=group_config["challenge_timeout"],
+        )
+        _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
+
     @app.on_chat_member_updated()
     async def challenge_user(client: Client, message: ChatMemberUpdated):
         # 过滤掉非用户加群消息和频道新用户消息，同时确保 form_user 这个参数不是空的
@@ -509,7 +541,6 @@ def _update(app):
                 reply_markup=InlineKeyboardMarkup(
                     challenge.generate_button(group_config, chat_id)),
             )
-            challenge.message = reply_message
         else:  # 验证码验证 -------------------------------------------------------------------------------------------
             challenge = Math()
             timeout = group_config["challenge_timeout"]
@@ -519,16 +550,80 @@ def _update(app):
                                                           timeout=timeout,
                                                           challenge=challenge.qus()),
                 reply_markup=InlineKeyboardMarkup(
-                    challenge.generate_button(group_config)),
+                    challenge.generate_join_request_button(group_config)),
             )
 
         # 开始计时 -----------------------------------------------------------------------------------------------------
+        challenge.message = reply_message
         challenge_id = "{chat}|{msg}".format(chat=message.chat.id, msg=reply_message.id)
         timeout_event = Timer(
             challenge_timeout(client, message, reply_message.id),
             timeout=group_config["challenge_timeout"],
         )
         _current_challenges[challenge_id] = (challenge, message.from_user.id, timeout_event)
+
+    @app.on_callback_query(private_math_challenge_filter)
+    async def private_math_challenge_callback(client: Client, callback_query: CallbackQuery):
+        query_data = str(callback_query.data)
+        query_id = callback_query.id
+        chat_id = query_data.split("|")[1]
+        answer = query_data.split("|")[0]
+        user_id = callback_query.from_user.id
+        msg_id = callback_query.message.id
+        chat = await client.get_chat(chat_id)
+        chat_title = chat.title
+        user_username = callback_query.from_user.username
+        user_first_name = callback_query.from_user.first_name
+        user_last_name = callback_query.from_user.last_name
+        group_config = get_group_config(chat_id)
+
+        # 获取验证信息-----------------------------------------------------------------------------------------------
+        ch_id = f"{chat.id}|{user_id}"
+        challenge_data = _current_challenges.get(ch_id)
+
+        if challenge_data is None:
+            logging.error("challenge not found, challenge_id: {}".format(ch_id))
+            return
+        else:
+            challenge, target_id, timeout_event = challenge_data
+
+        # 响应用户操作------------------------------------------------------------------------------------------------
+        _current_challenges.delete(ch_id)
+
+        correct = str(challenge.ans()) == answer
+        if correct:
+            await client.approve_chat_join_request(chat_id, user_id)
+            await client.edit_message_text(
+                user_id,
+                msg_id,
+                group_config["msg_challenge_passed"],
+                reply_markup=None)
+            await client.send_message(
+                int(_channel),
+                _config["msg_passed_answer"].format(
+                    targetuserid=str(target_id),
+                    groupid=str(chat_id),
+                    grouptitle=str(chat_title),
+                )
+            )
+        else:
+            await client.edit_message_text(
+                user_id,
+                msg_id,
+                group_config["msg_challenge_failed"],
+                reply_markup=None,
+            )
+            await client.send_message(
+                int(_channel),
+                _config["msg_failed_answer"].format(
+                    targetuserid=str(target_id),
+                    groupid=str(chat_id),
+                    grouptitle=str(chat_title),
+                )
+            )
+            await client.decline_chat_join_request(chat_id, user_id)
+
+
 
     @app.on_callback_query(admin_operate_filter)
     async def admin_operate_callback(client: Client, callback_query: CallbackQuery):
@@ -756,6 +851,38 @@ def _update(app):
                 client.delete_messages(chat_id, msg_id),
                 group_config["delete_passed_challenge_interval"],
             )
+
+    async def join_request_challenge_timeout(client: Client, message):
+        chat_id = message.chat.id
+        user_id = message.from_user.id
+        chat_title = message.chat.title
+        user_username = message.from_user.username
+        user_first_name = message.from_user.first_name
+        user_last_name = message.from_user.last_name
+        ch_id = f"{chat_id}|{user_id}"
+        challenge_data = _current_challenges.get(ch_id)
+
+        if challenge_data is None:
+            logging.error("challenge not found, challenge_id: {}".format(ch_id))
+            return
+        else:
+            challenge, target_id, timeout_event = challenge_data
+        _current_challenges.delete(f"{chat_id}|{user_id}")
+        await client.decline_chat_join_request(chat_id, user_id)
+        await client.edit_message_text(chat_id=user_id,
+                                       message_id=challenge.message.id,
+                                       text="验证已超时，请重新加群尝试",
+                                        reply_markup=None)
+        await client.send_message(chat_id=_channel,
+                                  text=_config["msg_failed_timeout"].format(
+                                      targetuserid=str(user_id),
+                                      targetusername=str(user_username),
+                                      targetfirstname=str(user_first_name),
+                                      targetlastname=str(user_last_name),
+                                      groupid=str(chat_id),
+                                      grouptitle=str(chat_title)
+                                  ))
+
 
     async def challenge_timeout(client: Client, message, reply_id):
         chat_id = message.chat.id

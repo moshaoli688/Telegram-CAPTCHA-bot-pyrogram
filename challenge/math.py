@@ -87,6 +87,17 @@ class Math:
                                  callback_data=b"-"),
         ]]
 
+    def generate_join_request_button(self, chat_id):
+        choices = []
+        answers = []
+        for c in self.choices():
+            answers.append(
+                InlineKeyboardButton(str(c),
+                                     callback_data=bytes(
+                                         str(c) + f"|{chat_id}", encoding="utf-8")))
+        choices.append(answers)
+        return choices
+
     def qus(self):
         return self.__str__()
 

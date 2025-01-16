@@ -1,5 +1,7 @@
 from pyrogram.errors import ChatAdminRequired, MessageNotModified
+from pyrogram.filters import private
 from pyrogram.types import ChatPermissions
+from pyrogram import Client
 import logging
 from flask import Flask, request, flash
 from flask import render_template
@@ -7,7 +9,7 @@ from challengedata import ChallengeData
 import dbhelper as db
 
 app = Flask(__name__)
-client = None
+client: Client = None
 _current_challenges = ChallengeData()
 _config = dict()
 _channel = 0
@@ -40,16 +42,20 @@ async def verify():
         return render_template('result.html')
 
     challenge, target_id, timeout_event = challenge_data
-    chat_id = challenge.message.chat.id
+    join_request = False
+    if challenge.message.chat.id == target_id:
+        chat_id = ch_id.split("|")[0]
+        chat = await client.get_chat(chat_id)
+        chat_title = chat.title
+        join_request = True
+    else:
+        chat_id = challenge.message.chat.id
+        chat_title = challenge.message.chat.title
     msg_id = challenge.message.id
     user_ip = request.headers.get('CF-Connecting-IP', request.remote_addr)
     ua = request.headers.get('User-Agent')
 
-    if chat_id != challenge.message.chat.id:
-        flash("未知错误！", "error")
-        return render_template('result.html')
     group_config = _config.get(str(chat_id), _config["*"])
-    chat_title = challenge.message.chat.title
 
     if request.method == "POST":
         captcha_response = request.form['g-recaptcha-response']
@@ -59,18 +65,21 @@ async def verify():
         else:
             timeout_event.stop()
             try:
-                await client.restrict_chat_member(
-                    chat_id,
-                    target_id,
-                    permissions=ChatPermissions(
-                        can_send_messages=True,
-                        can_send_media_messages=True,
-                        can_send_other_messages=True,
-                        can_send_polls=True,
-                        can_add_web_page_previews=True,
-                        can_change_info=True,
-                        can_invite_users=True,
-                        can_pin_messages=True))
+                if not join_request:
+                    await client.restrict_chat_member(
+                        chat_id,
+                        target_id,
+                        permissions=ChatPermissions(
+                            can_send_messages=True,
+                            can_send_media_messages=True,
+                            can_send_other_messages=True,
+                            can_send_polls=True,
+                            can_add_web_page_previews=True,
+                            can_change_info=True,
+                            can_invite_users=True,
+                            can_pin_messages=True))
+                else:
+                    await client.approve_chat_join_request(chat_id, target_id)
             except ChatAdminRequired:
                 pass
 
@@ -94,12 +103,12 @@ async def verify():
             except Exception as e:
                 logging.error(str(e))
 
-            if group_config["delete_passed_challenge"]:
+            if group_config["delete_passed_challenge"] and not join_request:
                 await client.delete_messages(chat_id, msg_id)
             else:
                 try:
                     await client.edit_message_text(
-                        chat_id=chat_id,
+                        chat_id=chat_id if not join_request else target_id,
                         message_id=msg_id,
                         text=group_config["msg_challenge_passed"],
                         reply_markup=None)
