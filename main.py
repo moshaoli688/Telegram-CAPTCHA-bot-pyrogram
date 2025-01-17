@@ -15,7 +15,6 @@ from pyrogram.errors import ChatAdminRequired, ChannelPrivate, MessageNotModifie
 from pyrogram.enums.chat_members_filter import ChatMembersFilter
 from pyrogram.enums.message_service_type import MessageServiceType
 from pyrogram.enums.chat_type import ChatType
-from pyrogram.filters import private
 from pyrogram.types import (InlineKeyboardMarkup, User, Message, ChatPermissions, CallbackQuery,
                             ChatMemberUpdated, ChatMember, Chat)
 from Timer import Timer
