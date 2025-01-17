@@ -404,25 +404,37 @@ def _update(app):
         user_id = message.from_user.id
         chat_id = message.chat.id
         group_config = get_group_config(message.chat.id)
+        challenge_id = "{chat}|{userid}".format(chat=message.chat.id, userid=user_id)
+
+        challenge_data = _current_challenges.get(challenge_id)
+
+        if challenge_data:
+            return # 如果已经有验证任务了，就不再触发这个流程
         # reCAPTCHA 验证 ----------------------------------------------------------------------------------------------
         if group_config['challenge_type'] == ChallengeType.recaptcha:
             challenge = ReCAPTCHA()
             timeout = group_config["challenge_timeout"]
-            reply_message = await client.send_message(chat_id=user_id, text=f"请在{timeout}秒内点击下方按钮完成验证，您需要使用浏览器来完成，如果您在访问页面时出现问题，请尝试关闭的匿名代理\n\n",
-                            reply_markup=InlineKeyboardMarkup(challenge.generate_auth_button()))
-            challenge.message = reply_message
+            try:
+                reply_message = await client.send_message(chat_id=user_id, text=f"请在{timeout}秒内点击下方按钮完成验证，您需要使用浏览器来完成，如果您在访问页面时出现问题，请尝试关闭的匿名代理\n\n",
+                                reply_markup=InlineKeyboardMarkup(challenge.generate_auth_button()))
+
+                challenge.message = reply_message
+            except UserIsBlocked:
+                pass
         else:  # 验证码验证 -------------------------------------------------------------------------------------------
             challenge = Math()
             timeout = group_config["challenge_timeout"]
-            reply_message = await client.send_message(
-                user_id,
-                group_config["msg_challenge_math_private"].format(challenge=challenge.qus(), timeout=timeout),
-                reply_markup=InlineKeyboardMarkup(
-                    challenge.generate_join_request_button(chat_id=chat_id)),
-            )
-            challenge.message = reply_message
+            try:
+                reply_message = await client.send_message(
+                    user_id,
+                    group_config["msg_challenge_math_private"].format(challenge=challenge.qus(), timeout=timeout),
+                    reply_markup=InlineKeyboardMarkup(
+                        challenge.generate_join_request_button(chat_id=chat_id)),
+                )
+                challenge.message = reply_message
+            except UserIsBlocked:
+                pass
         # 开始计时 -----------------------------------------------------------------------------------------------------
-        challenge_id = "{chat}|{userid}".format(chat=message.chat.id, userid=user_id)
         timeout_event = Timer(
             join_request_challenge_timeout(client, message),
             timeout=group_config["challenge_timeout"],
@@ -431,6 +443,8 @@ def _update(app):
 
     @app.on_chat_member_updated()
     async def challenge_user(client: Client, message: ChatMemberUpdated):
+        if message.via_join_request:
+            return # 从 request 加入的用户不触发这个流程
         # 过滤掉非用户加群消息和频道新用户消息，同时确保 form_user 这个参数不是空的
         if not bool(message.new_chat_member) or bool(message.old_chat_member) or message.chat.type == ChatType.CHANNEL:
             return
