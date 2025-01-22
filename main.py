@@ -419,6 +419,8 @@ def _update(app):
 
                 challenge.message = reply_message
             except UserIsBlocked:
+                await client.send_message(chat_id=_channel,
+                                          text=f"用户 `{user_id}` 屏蔽了机器人，无法发送验证消息")
                 pass
         else:  # 验证码验证 -------------------------------------------------------------------------------------------
             challenge = Math()
@@ -877,10 +879,11 @@ def _update(app):
             challenge, target_id, timeout_event = challenge_data
         _current_challenges.delete(f"{chat_id}|{user_id}")
         await client.decline_chat_join_request(chat_id, user_id)
-        await client.edit_message_text(chat_id=user_id,
-                                       message_id=challenge.message.id,
-                                       text="验证已超时，请重新加群尝试",
-                                        reply_markup=None)
+        if challenge.message is not None:
+            await client.edit_message_text(chat_id=user_id,
+                                           message_id=challenge.message.id,
+                                           text="验证已超时，请重新加群尝试",
+                                            reply_markup=None)
         await client.send_message(chat_id=_channel,
                                   text=_config["msg_failed_timeout"].format(
                                       targetuserid=str(user_id),
