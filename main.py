@@ -131,7 +131,7 @@ def _update(app):
     async def helping_cmd(client: Client, message: Message):
         _me: User = await client.get_me()
         logging.info(message.text)
-        await message.reply(_config["msg_self_introduction"],
+        await message.reply(_config["*"]["msg_self_introduction"],
                             disable_web_page_preview=True)
 
     @app.on_message(filters.command("ping") & filters.private)
@@ -515,7 +515,7 @@ def _update(app):
             if target.is_self:
                 try:
                     await client.send_message(
-                        message.chat.id, group_config["msg_self_introduction"])
+                        message.chat.id, group_config["*"]["msg_self_introduction"])
                     _me: User = await client.get_me()
                     try:
                         await client.send_message(
