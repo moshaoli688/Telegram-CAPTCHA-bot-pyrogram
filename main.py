@@ -515,7 +515,7 @@ def _update(app):
             if target.is_self:
                 try:
                     await client.send_message(
-                        message.chat.id, group_config["*"]["msg_self_introduction"])
+                        message.chat.id, group_config["msg_self_introduction"])
                     _me: User = await client.get_me()
                     try:
                         await client.send_message(
